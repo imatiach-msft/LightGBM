@@ -64,11 +64,14 @@ Linkers::Linkers(NetworkConfig config) {
 
 Linkers::~Linkers() {
   if (is_init_) {
+    std::cout << "%%%ilya: in linkers dispose " << std::endl; 
     for (size_t i = 0; i < linkers_.size(); ++i) {
       if (linkers_[i] != nullptr) {
+	std::cout << "%%%ilya: closing socket for linker" << std::endl;
         linkers_[i]->Close();
       }
     }
+    std::cout << "%%%ilya: finalizing socket" << std::endl;
     TcpSocket::Finalize();
     Log::Info("Finished linking network in %f seconds", network_time_ * 1e-3);
   }

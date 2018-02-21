@@ -54,11 +54,13 @@ void Network::Init(int num_machines, int rank,
 }
 
 void Network::Dispose() {
+  std::cout << "%%%ilya: Disposing of Network" << std::endl;
   num_machines_ = 1;
   rank_ = 0;
   linkers_.reset(new Linkers());
   reduce_scatter_ext_fun_ = nullptr;
   allgather_ext_fun_ = nullptr;
+  std::cout << "%%%ilya: Finished Network::Dispose" << std::endl;
 }
 
 void Network::Allreduce(char* input, comm_size_t input_size, int type_size, char* output, const ReduceFunction& reducer) {

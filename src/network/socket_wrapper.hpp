@@ -89,6 +89,7 @@ const bool kNoDelay = true;
 class TcpSocket {
 public:
   TcpSocket() {
+    std::cout << "%%%ilya: creating socket" << std::endl;
     sockfd_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd_ == INVALID_SOCKET) {
       Log::Fatal("Socket construction error");
@@ -111,6 +112,7 @@ public:
     ConfigSocket();
   }
   ~TcpSocket() {
+    std::cout << "%%%ilya: in empty TcpSocket destructor" << std::endl;
   }
   inline void SetTimeout(int timeout) {
     setsockopt(sockfd_, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char*>(&timeout), sizeof(timeout));
@@ -147,6 +149,7 @@ public:
   }
   inline static void Finalize() {
 #if defined(_WIN32)
+    std::cout << "%%%ilya: finalizing by calling WSACleanup" << std::endl;
     WSACleanup();
 #endif
   }
@@ -283,10 +286,15 @@ public:
 
   inline void Close() {
     if (!IsClosed()) {
+      std::cout << "%%%ilya: closing socket" << std::endl;
 #if defined(_WIN32)
+      std::cout << "%%%ilya: in _Win32 API closing socket" << std::endl;
       closesocket(sockfd_);
+      std::cout << "%%%ilya: sockfd _Win32 is " << sockfd_ << std::endl;
 #else
+      std::cout << "%%%ilya: in not _Win32 API closing socket" << std::endl;
       close(sockfd_);
+      std::cout << "%%%ilya: sockfd is " << sockfd_ << std::endl;
 #endif
       sockfd_ = INVALID_SOCKET;
     }
