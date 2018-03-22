@@ -25,6 +25,7 @@ THREAD_LOCAL AllgatherFunction Network::allgather_ext_fun_ = nullptr;
 
 void Network::Init(NetworkConfig config) {
   if (config.num_machines > 1) {
+    std::cout << "%%%ilya: calling network init with config" << std::endl;
     linkers_.reset(new Linkers(config));
     rank_ = linkers_->rank();
     num_machines_ = linkers_->num_machines();
@@ -41,6 +42,7 @@ void Network::Init(NetworkConfig config) {
 void Network::Init(int num_machines, int rank,
                    ReduceScatterFunction reduce_scatter_ext_fun, AllgatherFunction allgather_ext_fun) {
   if (num_machines > 1) {
+    std::cout << "%%%ilya: calling network init with machines & rank" << std::endl;
     rank_ = rank;
     num_machines_ = num_machines;
     block_start_ = std::vector<comm_size_t>(num_machines_);

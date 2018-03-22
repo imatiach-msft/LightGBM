@@ -18,6 +18,7 @@
 namespace LightGBM {
 
 Linkers::Linkers(NetworkConfig config) {
+  std::cout << "%%%ilya: in Linkers constructor" << std::endl;
   is_init_ = false;
   // start up socket
   TcpSocket::Startup();
@@ -59,10 +60,12 @@ Linkers::Linkers(NetworkConfig config) {
   Construct();
   // free listener
   listener_->Close();
+  std::cout << "%%%ilya: exiting Linkers constructor successfully" << std::endl;
   is_init_ = true;
 }
 
 Linkers::~Linkers() {
+  std::cout << "%%%ilya: in linkers dispose prior to is_init" << std::endl;
   if (is_init_) {
     std::cout << "%%%ilya: in linkers dispose " << std::endl; 
     for (size_t i = 0; i < linkers_.size(); ++i) {
