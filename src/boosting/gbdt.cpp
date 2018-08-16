@@ -385,22 +385,26 @@ double GBDT::BoostFromAverage() {
 
 bool GBDT::TrainOneIter(const score_t* gradients, const score_t* hessians) {
   double init_score = 0.0f;
+  int rank_ = Network::rank();
   // boosting first
   if (gradients == nullptr || hessians == nullptr) {
     init_score = BoostFromAverage();
+    Log::Info(("%%Ilya returning from BoostFromAverage 4:38, rank: " + std::to_string(rank_)).c_str());
     #ifdef TIMETAG
     auto start_time = std::chrono::steady_clock::now();
     #endif
-
+    Log::Info(("%%Ilya running Boosting, rank: " + std::to_string(rank_)).c_str());
     Boosting();
+    Log::Info(("%%Ilya getting gradients, rank: " + std::to_string(rank_)).c_str());
     gradients = gradients_.data();
+    Log::Info(("%%Ilya getting hessians, rank: " + std::to_string(rank_)).c_str());
     hessians = hessians_.data();
 
     #ifdef TIMETAG
     boosting_time += std::chrono::steady_clock::now() - start_time;
     #endif
   }
-
+  Log::Info(("%%Ilya running bagging logic! rank: " + std::to_string(rank_)).c_str());
   #ifdef TIMETAG
   auto start_time = std::chrono::steady_clock::now();
   #endif
@@ -411,21 +415,24 @@ bool GBDT::TrainOneIter(const score_t* gradients, const score_t* hessians) {
   #ifdef TIMETAG
   bagging_time += std::chrono::steady_clock::now() - start_time;
   #endif
-
+  Log::Info(("%%Ilya going into loop over cur trees, rank: " + std::to_string(rank_)).c_str());
   bool should_continue = false;
   for (int cur_tree_id = 0; cur_tree_id < num_tree_per_iteration_; ++cur_tree_id) {
-
+    Log::Info(("%%Ilya running on tree: " + std::to_string(cur_tree_id) + ", rank: " + std::to_string(rank_)).c_str());
     #ifdef TIMETAG
     start_time = std::chrono::steady_clock::now();
     #endif
     const size_t bias = static_cast<size_t>(cur_tree_id) * num_data_;
+    Log::Info(("%%Ilya calculated bias, rank: " + std::to_string(rank_)).c_str());
     std::unique_ptr<Tree> new_tree(new Tree(2));
     if (class_need_train_[cur_tree_id]) {
+      Log::Info(("%%Ilya class needs train: " + std::to_string(cur_tree_id)).c_str());
       auto grad = gradients + bias;
       auto hess = hessians + bias;
-
+      Log::Info(("%%Ilya calculated grad and hess, rank: " + std::to_string(rank_)).c_str());
       // need to copy gradients for bagging subset.
       if (is_use_subset_ && bag_data_cnt_ < num_data_) {
+	Log::Info("%%Ilya use subset");
         for (int i = 0; i < bag_data_cnt_; ++i) {
           gradients_[bias + i] = grad[bag_data_indices_[i]];
           hessians_[bias + i] = hess[bag_data_indices_[i]];
@@ -433,8 +440,10 @@ bool GBDT::TrainOneIter(const score_t* gradients, const score_t* hessians) {
         grad = gradients_.data() + bias;
         hess = hessians_.data() + bias;
       }
+      Log::Info(("%%Ilya copied gradients, rank: " + std::to_string(rank_)).c_str());
 
       new_tree.reset(tree_learner_->Train(grad, hess, is_constant_hessian_, forced_splits_json_));
+      Log::Info(("%%Ilya reset new tree, rank: " + std::to_string(rank_)).c_str());
     }
 
     #ifdef TIMETAG
@@ -442,41 +451,57 @@ bool GBDT::TrainOneIter(const score_t* gradients, const score_t* hessians) {
     #endif
 
     if (new_tree->num_leaves() > 1) {
+      Log::Info(("%%Ilya should continue, rank: " + std::to_string(rank_)).c_str());
       should_continue = true;
       tree_learner_->RenewTreeOutput(new_tree.get(), objective_function_, train_score_updater_->score() + bias,
                                      num_data_, bag_data_indices_.data(), bag_data_cnt_);
+      Log::Info(("%%Ilya renewed tree output, rank: " + std::to_string(rank_)).c_str());
       // shrinkage by learning rate
       new_tree->Shrinkage(shrinkage_rate_);
+      Log::Info(("%%Ilya set shrinkage, rank: " + std::to_string(rank_)).c_str());
       // update score
+      Log::Info(("%%Ilya updating score, rank: " + std::to_string(rank_)).c_str());
       UpdateScore(new_tree.get(), cur_tree_id);
+      Log::Info(("%%Ilya updated score, rank: " + std::to_string(rank_)).c_str());
       if (std::fabs(init_score) > kEpsilon) {
         new_tree->AddBias(init_score);
+	Log::Info(("%%Ilya set new tree bias, rank: " + std::to_string(rank_)).c_str());
       }
     } else {
+      Log::Info(("%%Ilya only add default score once, rank: " + std::to_string(rank_)).c_str());
       // only add default score one-time
       if (!class_need_train_[cur_tree_id] && models_.size() < static_cast<size_t>(num_tree_per_iteration_)) {
+	Log::Info(("%%Ilya class doesnt need train, rank: " + std::to_string(rank_)).c_str());
         auto output = class_default_output_[cur_tree_id];
+	Log::Info(("%%Ilya got class_default_output rank: " + std::to_string(rank_)).c_str());
         new_tree->AsConstantTree(output);
+	Log::Info(("%%Ilya new tree as constant tree , rank: " + std::to_string(rank_)).c_str());
         // updates scores
         train_score_updater_->AddScore(output, cur_tree_id);
+	Log::Info(("%%Ilya added score to train score updater , rank: " + std::to_string(rank_)).c_str());
         for (auto& score_updater : valid_score_updater_) {
           score_updater->AddScore(output, cur_tree_id);
         }
+	Log::Info(("%%Ilya added score to score updater, rank: " + std::to_string(rank_)).c_str());
       }
     }
+    Log::Info(("%%Ilya added new tree to model, rank: " + std::to_string(rank_)).c_str());
     // add model
     models_.push_back(std::move(new_tree));
   }
+  Log::Info(("%%Ilya end of loop, now checking if should continue, rank: " + std::to_string(rank_)).c_str());
 
   if (!should_continue) {
     Log::Warning("Stopped training because there are no more leaves that meet the split requirements");
     for (int cur_tree_id = 0; cur_tree_id < num_tree_per_iteration_; ++cur_tree_id) {
       models_.pop_back();
     }
+    Log::Info(("%%Ilya returning true, rank: " + std::to_string(rank_)).c_str());
     return true;
   }
-
+  Log::Info(("%%Ilya incrementing iteration, rank: " + std::to_string(rank_)).c_str());
   ++iter_;
+  Log::Info(("%%Ilya returning false, rank: " + std::to_string(rank_)).c_str());
   return false;
 }
 

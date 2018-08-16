@@ -234,26 +234,41 @@ public:
 
   template<class T>
   static void GlobalSum(std::vector<T>& local) {
-    std::vector<T> global;
+    int rank_ = Network::rank();
+    Log::Info(("%%Ilya In global sum, rank: " + std::to_string(rank_)).c_str());
+    std::vector<T> global(local.size());
+    Log::Info(("%%Ilya set global size to: " + std::to_string(global.size())).c_str());
     Allreduce(reinterpret_cast<char*>(local.data()),
               static_cast<comm_size_t>(sizeof(T) * local.size()), sizeof(T),
               reinterpret_cast<char*>(global.data()),
               [](const char* src, char* dst, int type_size, comm_size_t len) {
+      int rank_ = Network::rank();
+      Log::Info(("%%Ilya doing all reduce, rank: " + std::to_string(rank_)).c_str());
       comm_size_t used_size = 0;
       const T *p1;
       T *p2;
+      Log::Info(("%%Ilya comm_size_t len: " + std::to_string(len) + " rank: " + std::to_string(rank_)).c_str());
       while (used_size < len) {
+	Log::Info(("%%Ilya used_size < len, rank: " + std::to_string(rank_)).c_str());
         p1 = reinterpret_cast<const T *>(src);
         p2 = reinterpret_cast<T *>(dst);
+	Log::Info(("%%Ilya *p2 += *p1, rank: " + std::to_string(rank_)).c_str());
         *p2 += *p1;
+	Log::Info(("%%Ilya src += type_size, rank: " + std::to_string(rank_)).c_str());
         src += type_size;
+	Log::Info(("%%Ilya dst += type_size, rank: " + std::to_string(rank_)).c_str());
         dst += type_size;
+        Log::Info(("%%Ilya used_size += type_size, rank: " + std::to_string(rank_)).c_str());
+	Log::Info(("%%Ilya type size: " + std::to_string(type_size) + " rank: " + std::to_string(rank_)).c_str());
         used_size += type_size;
+	Log::Info(("%%Ilya new used size: " + std::to_string(used_size) + " rank: " + std::to_string(rank_)).c_str());
       }
     });
+    Log::Info(("%%Ilya all reduce complete, rank: " + std::to_string(rank_)).c_str());
     for (size_t i = 0; i < local.size(); ++i) {
       local[i] = global[i];
     }
+    Log::Info(("%%Ilya globalsum copied to local, rank: " + std::to_string(rank_)).c_str());
   }
 
 private:

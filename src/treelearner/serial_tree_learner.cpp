@@ -776,33 +776,50 @@ void SerialTreeLearner::Split(Tree* tree, int best_leaf, int* left_leaf, int* ri
 
 void SerialTreeLearner::RenewTreeOutput(Tree* tree, const ObjectiveFunction* obj, const double* prediction,
                                         data_size_t total_num_data, const data_size_t* bag_indices, data_size_t bag_cnt) const {
+  int rank_ = Network::rank();
+  Log::Info(("%%Ilya in renew tree output, rank: " + std::to_string(rank_)).c_str());
   if (obj != nullptr && obj->IsRenewTreeOutput()) {
+    Log::Info(("%%Ilya in RTO not null, rank: " + std::to_string(rank_)).c_str());
     CHECK(tree->num_leaves() <= data_partition_->num_leaves());
     const data_size_t* bag_mapper = nullptr;
     if (total_num_data != num_data_) {
       CHECK(bag_cnt == num_data_);
       bag_mapper = bag_indices;
     }
+    Log::Info(("%%Ilya in RTO before schedule, rank: " + std::to_string(rank_)).c_str());
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < tree->num_leaves(); ++i) {
+      Log::Info(("%%Ilya in RTO getting leaf output, rank: " + std::to_string(rank_)).c_str());
       const double output = static_cast<double>(tree->LeafOutput(i));
       data_size_t cnt_leaf_data = 0;
+      Log::Info(("%%Ilya in RTO getting index of leaf, rank: " + std::to_string(rank_)).c_str());
       auto index_mapper = data_partition_->GetIndexOnLeaf(i, &cnt_leaf_data);
       CHECK(cnt_leaf_data > 0);
       // bag_mapper[index_mapper[i]]
+      Log::Info(("%%Ilya in RTO calling renew on inner learner, rank: " + std::to_string(rank_)).c_str());
       const double new_output = obj->RenewTreeOutput(output, prediction, index_mapper, bag_mapper, cnt_leaf_data);
+      Log::Info(("%%Ilya in RTO setting leaf output, rank: " + std::to_string(rank_)).c_str());
       tree->SetLeafOutput(i, new_output);
     }
     if (Network::num_machines() > 1) {
-      std::vector<double> outputs(tree->num_leaves());
-      for (int i = 0; i < tree->num_leaves(); ++i) {
+      Log::Info(("%%Ilya in RTO more than one machine, rank: " + std::to_string(rank_)).c_str());
+      auto num_tree_leaves = tree->num_leaves();
+      Log::Info(("%%Ilya in RTO num tree leaves: " + std::to_string(num_tree_leaves)  + ", rank: " + std::to_string(rank_)).c_str());
+      std::vector<double> outputs(num_tree_leaves);
+      Log::Info(("%%Ilya in RTO setting leaf outputs, rank: " + std::to_string(rank_)).c_str());
+      for (int i = 0; i < num_tree_leaves; ++i) {
         outputs[i] = static_cast<double>(tree->LeafOutput(i));
+	Log::Info(("%%Ilya in RTO output of " + std::to_string(i) + " : " + std::to_string(outputs[i])  + ", rank: " + std::to_string(rank_)).c_str());
       }
+      Log::Info(("%%Ilya in RTO getting global sum, rank: " + std::to_string(rank_)).c_str());
       Network::GlobalSum(outputs);
+      Log::Info(("%%Ilya in RTO normalizing outputs, rank: " + std::to_string(rank_)).c_str());
       for (int i = 0; i < tree->num_leaves(); ++i) {
         tree->SetLeafOutput(i, outputs[i] / Network::num_machines());
       }
-    } 
+      Log::Info(("%%Ilya in RTO finish num machines check, rank: " + std::to_string(rank_)).c_str());
+    }
+    Log::Info(("%%Ilya in RTO finished, rank: " + std::to_string(rank_)).c_str());
   }
 }
 

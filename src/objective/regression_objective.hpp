@@ -1,6 +1,7 @@
 #ifndef LIGHTGBM_OBJECTIVE_REGRESSION_OBJECTIVE_HPP_
 #define LIGHTGBM_OBJECTIVE_REGRESSION_OBJECTIVE_HPP_
 
+#include <LightGBM/network.h>
 #include <LightGBM/objective_function.h>
 #include <LightGBM/meta.h>
 
@@ -513,30 +514,39 @@ public:
                          const data_size_t* index_mapper,
                          const data_size_t* bagging_mapper,
                          data_size_t num_data_in_leaf) const override {
+    int rank_ = Network::rank();
+    Log::Info(("%%Ilya in quantile renew tree output, rank: " + std::to_string(rank_)).c_str());
     if (weights_ == nullptr) {
+      Log::Info(("%%Ilya in quantile RTO, weights null, rank: " + std::to_string(rank_)).c_str());
       if (bagging_mapper == nullptr) {
+	Log::Info(("%%Ilya in quantile RTO, bagging mapper null, rank: " + std::to_string(rank_)).c_str());
         #define data_reader(i) (label_[index_mapper[i]] - pred[index_mapper[i]])
         PercentileFun(double, data_reader, num_data_in_leaf, alpha_);
         #undef data_reader
       } else {
+	Log::Info(("%%Ilya in quantile RTO, bagging mapper NOT null, rank: " + std::to_string(rank_)).c_str());
         #define data_reader(i) (label_[bagging_mapper[index_mapper[i]]] - pred[bagging_mapper[index_mapper[i]]])
         PercentileFun(double, data_reader, num_data_in_leaf, alpha_);
         #undef data_reader
       }
     } else {
+      Log::Info(("%%Ilya in quantile RTO, weights NOT null, rank: " + std::to_string(rank_)).c_str());
       if (bagging_mapper == nullptr) {
+	Log::Info(("%%Ilya in quantile RTO, weights NOT null & bagging_mapper null, rank: " + std::to_string(rank_)).c_str());
         #define data_reader(i) (label_[index_mapper[i]] - pred[index_mapper[i]])
         #define weight_reader(i) (weights_[index_mapper[i]])
         WeightedPercentileFun(double, data_reader, weight_reader, num_data_in_leaf, alpha_);
         #undef data_reader
         #undef weight_reader
       } else {
+	Log::Info(("%%Ilya in quantile RTO, weights NOT null & bagging mapper NOT null, rank: " + std::to_string(rank_)).c_str());
         #define data_reader(i) (label_[bagging_mapper[index_mapper[i]]] - pred[bagging_mapper[index_mapper[i]]])
         #define weight_reader(i) (weights_[bagging_mapper[index_mapper[i]]])
         WeightedPercentileFun(double, data_reader, weight_reader, num_data_in_leaf, alpha_);
         #undef data_reader
         #undef weight_reader
       }
+      Log::Info(("%%Ilya in quantile RTO, success!!: " + std::to_string(rank_)).c_str());
     }
   }
 
