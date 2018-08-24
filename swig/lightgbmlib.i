@@ -1,6 +1,7 @@
 /* lightgbmlib.i */
 %module lightgbmlib
 %ignore LGBM_BoosterSaveModelToString;
+%ignore LGBM_BoosterLoadModelFromString;
 %{
 /* Includes the header in the wrapper code */
 #include "../include/LightGBM/export.h"
@@ -25,6 +26,12 @@
       return nullptr;
     }
     return dst;
+  }
+
+  int LGBM_BoosterLoadModelFromStringSWIG(const char* model_str,
+					  int* out_num_iterations,
+					  BoosterHandle* out) {
+    return LGBM_BoosterLoadModelFromString(model_str, out_num_iterations, out);
   }
 %}
 

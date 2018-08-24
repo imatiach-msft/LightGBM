@@ -727,11 +727,11 @@ void GBDT::GetPredictAt(int data_idx, double* out_result, int64_t* out_len) {
 
 void GBDT::ResetTrainingData(const Dataset* train_data, const ObjectiveFunction* objective_function,
                              const std::vector<const Metric*>& training_metrics) {
-
+  Log::Info("%%ilya in reset training data gbdt");
   if (train_data != train_data_ && !train_data_->CheckAlign(*train_data)) {
     Log::Fatal("Cannot reset training data, since new training data has different bin mappers");
   }
-
+  Log::Info("%%ilya setting obj func");
   objective_function_ = objective_function;
   if (objective_function_ != nullptr) {
     is_constant_hessian_ = objective_function_->IsConstantHessian();
@@ -739,20 +739,21 @@ void GBDT::ResetTrainingData(const Dataset* train_data, const ObjectiveFunction*
   } else {
     is_constant_hessian_ = false;
   }
-
+  Log::Info("%%ilya pushing training metrics");
   // push training metrics
   training_metrics_.clear();
   for (const auto& metric : training_metrics) {
     training_metrics_.push_back(metric);
   }
   training_metrics_.shrink_to_fit();
-
+  Log::Info("%%ilya checking if train data different");
   if (train_data != train_data_) {
     train_data_ = train_data;
+    Log::Info("%%ilya not same training data");
     // not same training data, need reset score and others
     // create score tracker
     train_score_updater_.reset(new ScoreUpdater(train_data_, num_tree_per_iteration_));
-
+    Log::Info("%%ilya updating score");
     // update score
     for (int i = 0; i < iter_; ++i) {
       for (int cur_tree_id = 0; cur_tree_id < num_tree_per_iteration_; ++cur_tree_id) {
@@ -760,9 +761,9 @@ void GBDT::ResetTrainingData(const Dataset* train_data, const ObjectiveFunction*
         train_score_updater_->AddScore(models_[curr_tree].get(), cur_tree_id);
       }
     }
-
+    Log::Info("%%ilya getting num data");
     num_data_ = train_data_->num_data();
-
+    Log::Info("%%ilya create buffer for gradients and hessians");
     // create buffer for gradients and hessians
     if (objective_function_ != nullptr) {
       size_t total_size = static_cast<size_t>(num_data_) * num_tree_per_iteration_;
@@ -774,9 +775,11 @@ void GBDT::ResetTrainingData(const Dataset* train_data, const ObjectiveFunction*
     label_idx_ = train_data_->label_idx();
     feature_names_ = train_data_->feature_names();
     feature_infos_ = train_data_->feature_infos();
-
+    Log::Info("%%ilya calling reset on underlying tree learner object");
     tree_learner_->ResetTrainingData(train_data);
+    Log::Info("%%ilya calling reset on bagging config");
     ResetBaggingConfig(config_.get(), true);
+    Log::Info("%%ilya done in gbdt");
   }
 }
 

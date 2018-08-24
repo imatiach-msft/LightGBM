@@ -115,14 +115,21 @@ public:
   }
 
   void ResetTrainingData(const Dataset* train_data) {
+    Log::Info("%%ilya calling void ResetTrainingData");
     if (train_data != train_data_) {
+      Log::Info("%%ilya data different");
       CHECK(train_data->num_features() > 0);
+      Log::Info("%%ilya check passed");
       std::lock_guard<std::mutex> lock(mutex_);
+      Log::Info("%%ilya in mutex lock");
       train_data_ = train_data;
+      Log::Info("%%ilya calling create objective and metrics");
       CreateObjectiveAndMetrics();
+      Log::Info("%%ilya reset boosting");
       // reset the boosting
       boosting_->ResetTrainingData(train_data_,
                                    objective_fun_.get(), Common::ConstPtrInVectorWrapper<Metric>(train_metric_));
+      Log::Info("%%ilya void ResetTrainingData successful");
     }
   }
 
@@ -889,6 +896,8 @@ int LGBM_BoosterLoadModelFromString(
   int* out_num_iterations,
   BoosterHandle* out) {
   API_BEGIN();
+  Log::Info("%%ilya model_str:");
+  Log::Info(model_str);
   auto ret = std::unique_ptr<Booster>(new Booster(nullptr));
   ret->LoadModelFromString(model_str);
   *out_num_iterations = ret->GetBoosting()->GetCurrentIteration();
@@ -924,9 +933,12 @@ int LGBM_BoosterAddValidData(BoosterHandle handle,
 int LGBM_BoosterResetTrainingData(BoosterHandle handle,
                                   const DatasetHandle train_data) {
   API_BEGIN();
+  Log::Info("%%ilya in LGBM_BoosterResetTrainingData");
   Booster* ref_booster = reinterpret_cast<Booster*>(handle);
   const Dataset* p_dataset = reinterpret_cast<const Dataset*>(train_data);
+  Log::Info("%%ilya calling underlying reset");
   ref_booster->ResetTrainingData(p_dataset);
+  Log::Info("%%ilya returning from call");
   API_END();
 }
 
