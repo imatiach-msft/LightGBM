@@ -17,11 +17,13 @@ DataParallelTreeLearner<TREELEARNER_T>::DataParallelTreeLearner(const Config* co
 
 template <typename TREELEARNER_T>
 DataParallelTreeLearner<TREELEARNER_T>::~DataParallelTreeLearner() {
+  std::cout << "deallocating dataparallel tree learner..." << std::endl;
 }
 
 template <typename TREELEARNER_T>
 void DataParallelTreeLearner<TREELEARNER_T>::Init(const Dataset* train_data, bool is_constant_hessian) {
   // initialize SerialTreeLearner
+  std::cout << "initializing dataparallel tree learner..." << std::endl;
   TREELEARNER_T::Init(train_data, is_constant_hessian);
   // Get local rank and global machine size
   rank_ = Network::rank();

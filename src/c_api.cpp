@@ -138,6 +138,14 @@ class Booster {
   }
 
   ~Booster() {
+    std::cout << "deleting booster, printing memory contents: " << std::endl;
+    std::cout << "config: " << &config_ << std::endl;
+    std::cout << "train_metric: " << &train_metric_ << std::endl;
+    std::cout << "valid_metrics_: " << &valid_metrics_ << std::endl;
+    std::cout << "objective_fun_" << &objective_fun_ << std::endl;
+    std::cout << "train_data:" << train_data_ << std::endl;
+    std::cout << "boosting: " << &boosting_ << std::endl;
+    std::cout << "single row predictor: " << &single_row_predictor_ << std::endl;
   }
 
   void CreateObjectiveAndMetrics() {
@@ -1259,6 +1267,8 @@ int LGBM_BoosterLoadModelFromString(
 #endif
 int LGBM_BoosterFree(BoosterHandle handle) {
   API_BEGIN();
+  std::cout << "calling LGBM_BoosterFree... " << std::endl;
+  std::cout << "address of handle: " << &handle << std::endl;
   delete reinterpret_cast<Booster*>(handle);
   API_END();
 }

@@ -23,9 +23,11 @@ SerialTreeLearner::SerialTreeLearner(const Config* config)
 }
 
 SerialTreeLearner::~SerialTreeLearner() {
+  std::cout << "deallocatign serial tree learner... " << std::endl;
 }
 
 void SerialTreeLearner::Init(const Dataset* train_data, bool is_constant_hessian) {
+  std::cout << "allocating serial tree learner... " << std::endl;
   train_data_ = train_data;
   num_data_ = train_data_->num_data();
   num_features_ = train_data_->num_features();
