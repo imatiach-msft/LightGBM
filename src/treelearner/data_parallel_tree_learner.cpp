@@ -152,7 +152,7 @@ void DataParallelTreeLearner<TREELEARNER_T>::FindBestSplits() {
   TREELEARNER_T::ConstructHistograms(
       this->col_sampler_.is_feature_used_bytree(), true);
   // construct local histograms
-  #pragma omp parallel for schedule(static)
+  #pragma omp parallel for schedule(static) num_threads(this->share_state_->num_threads)
   for (int feature_index = 0; feature_index < this->num_features_; ++feature_index) {
     if (this->col_sampler_.is_feature_used_bytree()[feature_index] == false)
       continue;
@@ -177,7 +177,7 @@ void DataParallelTreeLearner<TREELEARNER_T>::FindBestSplitsFromHistograms(const 
   std::vector<int8_t> larger_node_used_features =
       this->col_sampler_.GetByNode();
   OMP_INIT_EX();
-  #pragma omp parallel for schedule(static)
+  #pragma omp parallel for schedule(static) num_threads(this->share_state_->num_threads)
   for (int feature_index = 0; feature_index < this->num_features_; ++feature_index) {
     OMP_LOOP_EX_BEGIN();
     if (!is_feature_aggregated_[feature_index]) continue;
