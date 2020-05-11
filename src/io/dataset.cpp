@@ -1201,6 +1201,7 @@ void Dataset::ConstructHistogramsMultiVal(const data_size_t* data_indices,
                                           const score_t* hessians,
                                           TrainingShareStates* share_state,
                                           hist_t* hist_data) const {
+  std::cout << "%%IM in ConstructHistogramsMultiVal" << std::endl;
   Common::FunctionTimer fun_time("Dataset::ConstructHistogramsMultiVal",
                                  global_timer);
   const auto multi_val_bin =
@@ -1208,6 +1209,7 @@ void Dataset::ConstructHistogramsMultiVal(const data_size_t* data_indices,
           ? share_state->multi_val_bin_subset.get()
           : share_state->multi_val_bin.get();
   if (multi_val_bin == nullptr) {
+    std::cout << "%%IM multi_val_bin == nullptr, returning" << std::endl;
     return;
   }
   global_timer.Start("Dataset::sparse_bin_histogram");
@@ -1220,6 +1222,7 @@ void Dataset::ConstructHistogramsMultiVal(const data_size_t* data_indices,
                                     &n_data_block, &data_block_size);
   const size_t buf_size =
       static_cast<size_t>(n_data_block - 1) * num_bin_aligned * 2;
+  std::cout << "%%IM ConstructHistogramsMultiVal buf_size " << buf_size << std::endl;
   if (share_state->hist_buf.size() < buf_size) {
     share_state->hist_buf.resize(buf_size);
   }
@@ -1233,21 +1236,28 @@ void Dataset::ConstructHistogramsMultiVal(const data_size_t* data_indices,
     OMP_LOOP_EX_BEGIN();
     data_size_t start = tid * data_block_size;
     data_size_t end = std::min(start + data_block_size, num_data);
-    auto data_ptr = hist_data;
+    std::cout << "%%IM data start: " << start << " data end: " << end << std::endl;
+    hist_t* data_ptr = hist_data;
     if (tid > 0) {
+      std::cout << "%%IM tid > 0, data_ptr modified" << std::endl;
       data_ptr = share_state->hist_buf.data() +
                  static_cast<size_t>(num_bin_aligned) * 2 * (tid - 1);
     }
-    std::memset(reinterpret_cast<void*>(data_ptr), 0, num_bin * kHistEntrySize);
+    std::cout << "%%IM my tid: " << tid << std::endl;
+    std::cout << "%%IM memset data_ptr: " << data_ptr << " &: " << &data_ptr << " to zero for: " << std::dec << num_bin * kHistEntrySize << std::endl;
+    // std::memset(reinterpret_cast<void*>(data_ptr), 0, (num_bin * kHistEntrySize)/2);
     if (USE_INDICES) {
       if (ORDERED) {
+        std::cout << "%%IM USE INDICES-> ORDERED-> ConstructHistogramOrdered" << std::endl;
         multi_val_bin->ConstructHistogramOrdered(data_indices, start, end,
                                                  gradients, hessians, data_ptr);
       } else {
+        std::cout << "%%IM USE INDICES-> !ORDERED-> ConstructHistogram" << std::endl;
         multi_val_bin->ConstructHistogram(data_indices, start, end, gradients,
                                           hessians, data_ptr);
       }
     } else {
+      std::cout << "%%IM USE !INDICES-> !ORDERED-> ConstructHistogram" << std::endl;
       multi_val_bin->ConstructHistogram(start, end, gradients, hessians,
                                         data_ptr);
     }
@@ -1259,22 +1269,27 @@ void Dataset::ConstructHistogramsMultiVal(const data_size_t* data_indices,
   global_timer.Start("Dataset::sparse_bin_histogram_merge");
   int n_bin_block = 1;
   int bin_block_size = num_bin;
+  std::cout << "%%IM calling BlockInfo..." << std::endl;
   Threading::BlockInfo<data_size_t>(share_state->num_threads, num_bin, 512, &n_bin_block,
                                     &bin_block_size);
 #pragma omp parallel for schedule(static, 1) num_threads(share_state->num_threads)
   for (int t = 0; t < n_bin_block; ++t) {
     const int start = t * bin_block_size;
+    std::cout << "%%IM start: " << start << " bin block size: " << bin_block_size << " num_bin: " << num_bin << std::endl;
     const int end = std::min(start + bin_block_size, num_bin);
+    std::cout << "%%IM end: " << end << " n_data_block: " << n_data_block << std::endl;
     for (int tid = 1; tid < n_data_block; ++tid) {
       auto src_ptr = share_state->hist_buf.data() +
                      static_cast<size_t>(num_bin_aligned) * 2 * (tid - 1);
       for (int i = start * 2; i < end * 2; ++i) {
+        std::cout << "%%IM setting hist_data at i" << i << std::endl;
         hist_data[i] += src_ptr[i];
       }
     }
   }
   global_timer.Stop("Dataset::sparse_bin_histogram_merge");
   global_timer.Start("Dataset::sparse_bin_histogram_move");
+  std::cout << "%%IM calling histMove from origin to hist_data" << std::endl;
   share_state->HistMove(hist_data, origin_hist_data);
   global_timer.Stop("Dataset::sparse_bin_histogram_move");
 }
@@ -1285,7 +1300,9 @@ void Dataset::ConstructHistogramsInner(
     data_size_t num_data, const score_t* gradients, const score_t* hessians,
     score_t* ordered_gradients, score_t* ordered_hessians,
     TrainingShareStates* share_state, hist_t* hist_data) const {
+  std::cout << "%%IM in ConstructHistogramsInner" << std::endl;
   if (!share_state->is_colwise) {
+    std::cout << "%%IM leaving ConstructHistogramsInner, !share_state->is_colwise" << std::endl;
     return ConstructHistogramsMultiVal<USE_INDICES, false>(
         data_indices, num_data, gradients, hessians, share_state, hist_data);
   }
@@ -1311,12 +1328,14 @@ void Dataset::ConstructHistogramsInner(
     }
   }
   int num_used_dense_group = static_cast<int>(used_dense_group.size());
+  std::cout << "%%IM num_used_dense_group: " << num_used_dense_group << std::endl;
   global_timer.Start("Dataset::dense_bin_histogram");
   auto ptr_ordered_grad = gradients;
   auto ptr_ordered_hess = hessians;
   if (num_used_dense_group > 0) {
     if (USE_INDICES) {
       if (USE_HESSIAN) {
+        std::cout << "%%IM in USE_HESSIANS loop! num_data: " << num_data << std::endl;
 #pragma omp parallel for schedule(static, 512) if (num_data >= 1024)
         for (data_size_t i = 0; i < num_data; ++i) {
           ordered_gradients[i] = gradients[data_indices[i]];
@@ -1325,6 +1344,7 @@ void Dataset::ConstructHistogramsInner(
         ptr_ordered_grad = ordered_gradients;
         ptr_ordered_hess = ordered_hessians;
       } else {
+        std::cout << "%%IM in NOT USE_HESSIANS loop! num_data: " << num_data << std::endl;
 #pragma omp parallel for schedule(static, 512) if (num_data >= 1024)
         for (data_size_t i = 0; i < num_data; ++i) {
           ordered_gradients[i] = gradients[data_indices[i]];
@@ -1337,10 +1357,10 @@ void Dataset::ConstructHistogramsInner(
     for (int gi = 0; gi < num_used_dense_group; ++gi) {
       OMP_LOOP_EX_BEGIN();
       int group = used_dense_group[gi];
-      auto data_ptr = hist_data + group_bin_boundaries_[group] * 2;
+      hist_t* data_ptr = hist_data + group_bin_boundaries_[group] * 2;
       const int num_bin = feature_groups_[group]->num_total_bin_;
-      std::memset(reinterpret_cast<void*>(data_ptr), 0,
-                  num_bin * kHistEntrySize);
+      std::cout << "%%IM setting memory to zero fro data_ptr: " << data_ptr << " &: " << &data_ptr << " mem: "<< std::dec << num_bin * kHistEntrySize << std::endl;
+      // std::memset(reinterpret_cast<void*>(data_ptr), 0, (num_bin * kHistEntrySize) / 2);
       if (USE_HESSIAN) {
         if (USE_INDICES) {
           feature_groups_[group]->bin_data_->ConstructHistogram(
@@ -1370,11 +1390,13 @@ void Dataset::ConstructHistogramsInner(
   global_timer.Stop("Dataset::dense_bin_histogram");
   if (multi_val_groud_id >= 0) {
     if (num_used_dense_group > 0) {
+      std::cout << "%%IM calling ConstructHistogramsMultiVal for num_used_dense_group > 0" << std::endl;
       ConstructHistogramsMultiVal<USE_INDICES, true>(
           data_indices, num_data, ptr_ordered_grad, ptr_ordered_hess,
           share_state,
           hist_data + group_bin_boundaries_[multi_val_groud_id] * 2);
     } else {
+      std::cout << "%%IM calling ConstructHistogramsMultiVal for !(num_used_dense_group > 0)" << std::endl;
       ConstructHistogramsMultiVal<USE_INDICES, false>(
           data_indices, num_data, gradients, hessians, share_state,
           hist_data + group_bin_boundaries_[multi_val_groud_id] * 2);

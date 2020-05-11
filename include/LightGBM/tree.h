@@ -85,11 +85,11 @@ class Tree {
                        int left_cnt, int right_cnt, double left_weight, double right_weight, float gain, MissingType missing_type);
 
   /*! \brief Get the output of one leaf */
-  inline double LeafOutput(int leaf) const { return leaf_value_[leaf]; }
+  inline double LeafOutput(int leaf) const { return leaf_value_.at(leaf); }
 
   /*! \brief Set the output of one leaf */
   inline void SetLeafOutput(int leaf, double output) {
-    leaf_value_[leaf] = MaybeRoundToZero(output);
+    leaf_value_.at(leaf) = MaybeRoundToZero(output);
   }
 
   /*!
@@ -140,37 +140,37 @@ class Tree {
   inline int num_leaves() const { return num_leaves_; }
 
   /*! \brief Get depth of specific leaf*/
-  inline int leaf_depth(int leaf_idx) const { return leaf_depth_[leaf_idx]; }
+  inline int leaf_depth(int leaf_idx) const { return leaf_depth_.at(leaf_idx); }
 
   /*! \brief Get feature of specific split*/
-  inline int split_feature(int split_idx) const { return split_feature_[split_idx]; }
+  inline int split_feature(int split_idx) const { return split_feature_.at(split_idx); }
 
-  inline double split_gain(int split_idx) const { return split_gain_[split_idx]; }
+  inline double split_gain(int split_idx) const { return split_gain_.at(split_idx); }
 
   inline double internal_value(int node_idx) const {
-    return internal_value_[node_idx];
+    return internal_value_.at(node_idx);
   }
 
   inline bool IsNumericalSplit(int node_idx) const {
-    return !GetDecisionType(decision_type_[node_idx], kCategoricalMask);
+    return !GetDecisionType(decision_type_.at(node_idx), kCategoricalMask);
   }
 
-  inline int left_child(int node_idx) const { return left_child_[node_idx]; }
+  inline int left_child(int node_idx) const { return left_child_.at(node_idx); }
 
-  inline int right_child(int node_idx) const { return right_child_[node_idx]; }
+  inline int right_child(int node_idx) const { return right_child_.at(node_idx); }
 
   inline int split_feature_inner(int node_idx) const {
-    return split_feature_inner_[node_idx];
+    return split_feature_inner_.at(node_idx);
   }
 
-  inline int leaf_parent(int leaf_idx) const { return leaf_parent_[leaf_idx]; }
+  inline int leaf_parent(int leaf_idx) const { return leaf_parent_.at(leaf_idx); }
 
   inline uint32_t threshold_in_bin(int node_idx) const {
-    return threshold_in_bin_[node_idx];
+    return threshold_in_bin_.at(node_idx);
   }
 
   /*! \brief Get the number of data points that fall at or below this node*/
-  inline int data_count(int node) const { return node >= 0 ? internal_count_[node] : leaf_count_[~node]; }
+  inline int data_count(int node) const { return node >= 0 ? internal_count_.at(node) : leaf_count_.at(~node); }
 
   /*!
   * \brief Shrinkage for the tree's output
@@ -178,13 +178,16 @@ class Tree {
   * \param rate The factor of shrinkage
   */
   inline void Shrinkage(double rate) {
-#pragma omp parallel for schedule(static, 1024) if (num_leaves_ >= 2048)
+    std::cout << "IM%% internal_value_ size: " << internal_value_.size() << std::endl;
+    std::cout << "IM%% leaf_value_ size: " << leaf_value_.size() << std::endl;
+    std::cout << "IM%% num_leaves_: " << num_leaves_ << std::endl;
+    #pragma omp parallel for schedule(static, 1024) if (num_leaves_ >= 2048)
     for (int i = 0; i < num_leaves_ - 1; ++i) {
-      leaf_value_[i] = MaybeRoundToZero(leaf_value_[i] * rate);
-      internal_value_[i] = MaybeRoundToZero(internal_value_[i] * rate);
+      leaf_value_.at(i) = MaybeRoundToZero(leaf_value_.at(i) * rate);
+      internal_value_.at(i) = MaybeRoundToZero(internal_value_.at(i) * rate);
     }
-    leaf_value_[num_leaves_ - 1] =
-        MaybeRoundToZero(leaf_value_[num_leaves_ - 1] * rate);
+    leaf_value_.at(num_leaves_ - 1) =
+      MaybeRoundToZero(leaf_value_.at(num_leaves_ - 1) * rate);
     shrinkage_ *= rate;
   }
 
@@ -193,11 +196,11 @@ class Tree {
   inline void AddBias(double val) {
 #pragma omp parallel for schedule(static, 1024) if (num_leaves_ >= 2048)
     for (int i = 0; i < num_leaves_ - 1; ++i) {
-      leaf_value_[i] = MaybeRoundToZero(leaf_value_[i] + val);
-      internal_value_[i] = MaybeRoundToZero(internal_value_[i] + val);
+      leaf_value_.at(i) = MaybeRoundToZero(leaf_value_.at(i) + val);
+      internal_value_.at(i) = MaybeRoundToZero(internal_value_.at(i) + val);
     }
-    leaf_value_[num_leaves_ - 1] =
-        MaybeRoundToZero(leaf_value_[num_leaves_ - 1] + val);
+    leaf_value_.at(num_leaves_ - 1) =
+      MaybeRoundToZero(leaf_value_.at(num_leaves_ - 1) + val);
     // force to 1.0
     shrinkage_ = 1.0f;
   }
@@ -205,7 +208,7 @@ class Tree {
   inline void AsConstantTree(double val) {
     num_leaves_ = 1;
     shrinkage_ = 1.0f;
-    leaf_value_[0] = val;
+    leaf_value_.at(0) = val;
   }
 
   /*! \brief Serialize this object to string*/
@@ -256,73 +259,73 @@ class Tree {
   std::string CategoricalDecisionIfElse(int node) const;
 
   inline int NumericalDecision(double fval, int node) const {
-    uint8_t missing_type = GetMissingType(decision_type_[node]);
+    uint8_t missing_type = GetMissingType(decision_type_.at(node));
     if (std::isnan(fval) && missing_type != MissingType::NaN) {
       fval = 0.0f;
     }
     if ((missing_type == MissingType::Zero && IsZero(fval))
         || (missing_type == MissingType::NaN && std::isnan(fval))) {
-      if (GetDecisionType(decision_type_[node], kDefaultLeftMask)) {
-        return left_child_[node];
+      if (GetDecisionType(decision_type_.at(node), kDefaultLeftMask)) {
+        return left_child_.at(node);
       } else {
-        return right_child_[node];
+        return right_child_.at(node);
       }
     }
-    if (fval <= threshold_[node]) {
-      return left_child_[node];
+    if (fval <= threshold_.at(node)) {
+      return left_child_.at(node);
     } else {
-      return right_child_[node];
+      return right_child_.at(node);
     }
   }
 
   inline int NumericalDecisionInner(uint32_t fval, int node, uint32_t default_bin, uint32_t max_bin) const {
-    uint8_t missing_type = GetMissingType(decision_type_[node]);
+    uint8_t missing_type = GetMissingType(decision_type_.at(node));
     if ((missing_type == MissingType::Zero && fval == default_bin)
         || (missing_type == MissingType::NaN && fval == max_bin)) {
-      if (GetDecisionType(decision_type_[node], kDefaultLeftMask)) {
-        return left_child_[node];
+      if (GetDecisionType(decision_type_.at(node), kDefaultLeftMask)) {
+        return left_child_.at(node);
       } else {
-        return right_child_[node];
+        return right_child_.at(node);
       }
     }
-    if (fval <= threshold_in_bin_[node]) {
-      return left_child_[node];
+    if (fval <= threshold_in_bin_.at(node)) {
+      return left_child_.at(node);
     } else {
-      return right_child_[node];
+      return right_child_.at(node);
     }
   }
 
   inline int CategoricalDecision(double fval, int node) const {
-    uint8_t missing_type = GetMissingType(decision_type_[node]);
+    uint8_t missing_type = GetMissingType(decision_type_.at(node));
     int int_fval = static_cast<int>(fval);
     if (int_fval < 0) {
-      return right_child_[node];;
+      return right_child_.at(node);
     } else if (std::isnan(fval)) {
       // NaN is always in the right
       if (missing_type == MissingType::NaN) {
-        return right_child_[node];
+        return right_child_.at(node);
       }
       int_fval = 0;
     }
-    int cat_idx = static_cast<int>(threshold_[node]);
-    if (Common::FindInBitset(cat_threshold_.data() + cat_boundaries_[cat_idx],
-                             cat_boundaries_[cat_idx + 1] - cat_boundaries_[cat_idx], int_fval)) {
-      return left_child_[node];
+    int cat_idx = static_cast<int>(threshold_.at(node));
+    if (Common::FindInBitset(cat_threshold_.data() + cat_boundaries_.at(cat_idx),
+                             cat_boundaries_.at(cat_idx + 1) - cat_boundaries_.at(cat_idx), int_fval)) {
+      return left_child_.at(node);
     }
-    return right_child_[node];
+    return right_child_.at(node);
   }
 
   inline int CategoricalDecisionInner(uint32_t fval, int node) const {
-    int cat_idx = static_cast<int>(threshold_in_bin_[node]);
-    if (Common::FindInBitset(cat_threshold_inner_.data() + cat_boundaries_inner_[cat_idx],
-                             cat_boundaries_inner_[cat_idx + 1] - cat_boundaries_inner_[cat_idx], fval)) {
-      return left_child_[node];
+    int cat_idx = static_cast<int>(threshold_in_bin_.at(node));
+    if (Common::FindInBitset(cat_threshold_inner_.data() + cat_boundaries_inner_.at(cat_idx),
+                             cat_boundaries_inner_.at(cat_idx + 1) - cat_boundaries_inner_.at(cat_idx), fval)) {
+      return left_child_.at(node);
     }
-    return right_child_[node];
+    return right_child_.at(node);
   }
 
   inline int Decision(double fval, int node) const {
-    if (GetDecisionType(decision_type_[node], kCategoricalMask)) {
+    if (GetDecisionType(decision_type_.at(node), kCategoricalMask)) {
       return CategoricalDecision(fval, node);
     } else {
       return NumericalDecision(fval, node);
@@ -330,7 +333,7 @@ class Tree {
   }
 
   inline int DecisionInner(uint32_t fval, int node, uint32_t default_bin, uint32_t max_bin) const {
-    if (GetDecisionType(decision_type_[node], kCategoricalMask)) {
+    if (GetDecisionType(decision_type_.at(node), kCategoricalMask)) {
       return CategoricalDecisionInner(fval, node);
     } else {
       return NumericalDecisionInner(fval, node, default_bin, max_bin);
@@ -444,38 +447,38 @@ inline void Tree::Split(int leaf, int feature, int real_feature,
                         double left_weight, double right_weight, float gain) {
   int new_node_idx = num_leaves_ - 1;
   // update parent info
-  int parent = leaf_parent_[leaf];
+  int parent = leaf_parent_.at(leaf);
   if (parent >= 0) {
     // if cur node is left child
-    if (left_child_[parent] == ~leaf) {
-      left_child_[parent] = new_node_idx;
+    if (left_child_.at(parent) == ~leaf) {
+      left_child_.at(parent) = new_node_idx;
     } else {
-      right_child_[parent] = new_node_idx;
+      right_child_.at(parent) = new_node_idx;
     }
   }
   // add new node
-  split_feature_inner_[new_node_idx] = feature;
-  split_feature_[new_node_idx] = real_feature;
-  split_gain_[new_node_idx] = gain;
+  split_feature_inner_.at(new_node_idx) = feature;
+  split_feature_.at(new_node_idx) = real_feature;
+  split_gain_.at(new_node_idx) = gain;
   // add two new leaves
-  left_child_[new_node_idx] = ~leaf;
-  right_child_[new_node_idx] = ~num_leaves_;
+  left_child_.at(new_node_idx) = ~leaf;
+  right_child_.at(new_node_idx) = ~num_leaves_;
   // update new leaves
-  leaf_parent_[leaf] = new_node_idx;
-  leaf_parent_[num_leaves_] = new_node_idx;
+  leaf_parent_.at(leaf) = new_node_idx;
+  leaf_parent_.at(num_leaves_) = new_node_idx;
   // save current leaf value to internal node before change
-  internal_weight_[new_node_idx] = leaf_weight_[leaf];
-  internal_value_[new_node_idx] = leaf_value_[leaf];
-  internal_count_[new_node_idx] = left_cnt + right_cnt;
-  leaf_value_[leaf] = std::isnan(left_value) ? 0.0f : left_value;
-  leaf_weight_[leaf] = left_weight;
-  leaf_count_[leaf] = left_cnt;
-  leaf_value_[num_leaves_] = std::isnan(right_value) ? 0.0f : right_value;
-  leaf_weight_[num_leaves_] = right_weight;
-  leaf_count_[num_leaves_] = right_cnt;
+  internal_weight_.at(new_node_idx) = leaf_weight_.at(leaf);
+  internal_value_.at(new_node_idx) = leaf_value_.at(leaf);
+  internal_count_.at(new_node_idx) = left_cnt + right_cnt;
+  leaf_value_.at(leaf) = std::isnan(left_value) ? 0.0f : left_value;
+  leaf_weight_.at(leaf) = left_weight;
+  leaf_count_.at(leaf) = left_cnt;
+  leaf_value_.at(num_leaves_) = std::isnan(right_value) ? 0.0f : right_value;
+  leaf_weight_.at(num_leaves_) = right_weight;
+  leaf_count_.at(num_leaves_) = right_cnt;
   // update leaf depth
-  leaf_depth_[num_leaves_] = leaf_depth_[leaf] + 1;
-  leaf_depth_[leaf]++;
+  leaf_depth_.at(num_leaves_) = leaf_depth_.at(leaf) + 1;
+  leaf_depth_.at(leaf)++;
 }
 
 inline double Tree::Predict(const double* feature_values) const {
@@ -483,7 +486,7 @@ inline double Tree::Predict(const double* feature_values) const {
     int leaf = GetLeaf(feature_values);
     return LeafOutput(leaf);
   } else {
-    return leaf_value_[0];
+    return leaf_value_.at(0);
   }
 }
 
@@ -492,7 +495,7 @@ inline double Tree::PredictByMap(const std::unordered_map<int, double>& feature_
     int leaf = GetLeafByMap(feature_values);
     return LeafOutput(leaf);
   } else {
-    return leaf_value_[0];
+    return leaf_value_.at(0);
   }
 }
 
@@ -528,10 +531,10 @@ inline void Tree::PredictContrib(const double* feature_values, int num_features,
 inline void Tree::RecomputeLeafDepths(int node, int depth) {
   if (node == 0) leaf_depth_.resize(num_leaves());
   if (node < 0) {
-    leaf_depth_[~node] = depth;
+    leaf_depth_.at(~node) = depth;
   } else {
-    RecomputeLeafDepths(left_child_[node], depth + 1);
-    RecomputeLeafDepths(right_child_[node], depth + 1);
+    RecomputeLeafDepths(left_child_.at(node), depth + 1);
+    RecomputeLeafDepths(right_child_.at(node), depth + 1);
   }
 }
 
@@ -539,11 +542,11 @@ inline int Tree::GetLeaf(const double* feature_values) const {
   int node = 0;
   if (num_cat_ > 0) {
     while (node >= 0) {
-      node = Decision(feature_values[split_feature_[node]], node);
+      node = Decision(feature_values[split_feature_.at(node)], node);
     }
   } else {
     while (node >= 0) {
-      node = NumericalDecision(feature_values[split_feature_[node]], node);
+      node = NumericalDecision(feature_values[split_feature_.at(node)], node);
     }
   }
   return ~node;
@@ -553,11 +556,11 @@ inline int Tree::GetLeafByMap(const std::unordered_map<int, double>& feature_val
   int node = 0;
   if (num_cat_ > 0) {
     while (node >= 0) {
-      node = Decision(feature_values.count(split_feature_[node]) > 0 ? feature_values.at(split_feature_[node]) : 0.0f, node);
+      node = Decision(feature_values.count(split_feature_.at(node)) > 0 ? feature_values.at(split_feature_.at(node)) : 0.0f, node);
     }
   } else {
     while (node >= 0) {
-      node = NumericalDecision(feature_values.count(split_feature_[node]) > 0 ? feature_values.at(split_feature_[node]) : 0.0f, node);
+      node = NumericalDecision(feature_values.count(split_feature_[node]) > 0 ? feature_values.at(split_feature_.at(node)) : 0.0f, node);
     }
   }
   return ~node;

@@ -149,6 +149,7 @@ class Booster {
   }
 
   void CreateObjectiveAndMetrics() {
+    std::lock_guard<std::mutex> lock(mutex_);
     // create objective function
     objective_fun_.reset(ObjectiveFunction::CreateObjectiveFunction(config_.objective,
                                                                     config_));
@@ -466,6 +467,7 @@ class Booster {
   }
 
   std::string SaveModelToString(int start_iteration, int num_iteration) {
+    std::lock_guard<std::mutex> lock(mutex_);
     return boosting_->SaveModelToString(start_iteration, num_iteration);
   }
 

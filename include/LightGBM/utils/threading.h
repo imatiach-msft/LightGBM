@@ -118,15 +118,16 @@ class ParallelPartitionRunner {
     }
 
     OMP_INIT_EX();
+    std::cout << "%%IM in parallel partititon runner, num threads: " << num_threads_ << std::endl;
 #pragma omp parallel for schedule(static, 1) num_threads(num_threads_)
     for (int i = 0; i < nblock; ++i) {
       OMP_LOOP_EX_BEGIN();
       INDEX_T cur_start = i * inner_size;
       INDEX_T cur_cnt = std::min(inner_size, cnt - cur_start);
-      offsets_[i] = cur_start;
+      offsets_.at(i) = cur_start;
       if (cur_cnt <= 0) {
-        left_cnts_[i] = 0;
-        right_cnts_[i] = 0;
+        left_cnts_.at(i) = 0;
+        right_cnts_.at(i) = 0;
         continue;
       }
       auto left_ptr = left_.data() + cur_start;
@@ -141,31 +142,31 @@ class ParallelPartitionRunner {
         // reverse for one buffer
         std::reverse(left_ptr + cur_left_count, left_ptr + cur_cnt);
       }
-      left_cnts_[i] = cur_left_count;
-      right_cnts_[i] = cur_cnt - cur_left_count;
+      left_cnts_.at(i) = cur_left_count;
+      right_cnts_.at(i) = cur_cnt - cur_left_count;
       OMP_LOOP_EX_END();
     }
     OMP_THROW_EX();
 
-    left_write_pos_[0] = 0;
-    right_write_pos_[0] = 0;
+    left_write_pos_.at(0) = 0;
+    right_write_pos_.at(0) = 0;
     for (int i = 1; i < nblock; ++i) {
-      left_write_pos_[i] = left_write_pos_[i - 1] + left_cnts_[i - 1];
-      right_write_pos_[i] = right_write_pos_[i - 1] + right_cnts_[i - 1];
+      left_write_pos_.at(i) = left_write_pos_.at(i - 1) + left_cnts_.at(i - 1);
+      right_write_pos_.at(i) = right_write_pos_.at(i - 1) + right_cnts_.at(i - 1);
     }
-    data_size_t left_cnt = left_write_pos_[nblock - 1] + left_cnts_[nblock - 1];
+    data_size_t left_cnt = left_write_pos_.at(nblock - 1) + left_cnts_.at(nblock - 1);
 
     auto right_start = out + left_cnt;
 #pragma omp parallel for schedule(static, 1) num_threads(num_threads_)
     for (int i = 0; i < nblock; ++i) {
-      std::copy_n(left_.data() + offsets_[i], left_cnts_[i],
-                  out + left_write_pos_[i]);
+      std::copy_n(left_.data() + offsets_.at(i), left_cnts_.at(i),
+                  out + left_write_pos_.at(i));
       if (TWO_BUFFER) {
-        std::copy_n(right_.data() + offsets_[i], right_cnts_[i],
-                    right_start + right_write_pos_[i]);
+        std::copy_n(right_.data() + offsets_.at(i), right_cnts_.at(i),
+                    right_start + right_write_pos_.at(i));
       } else {
-        std::copy_n(left_.data() + offsets_[i] + left_cnts_[i], right_cnts_[i],
-                    right_start + right_write_pos_[i]);
+        std::copy_n(left_.data() + offsets_.at(i) + left_cnts_.at(i), right_cnts_.at(i),
+                    right_start + right_write_pos_.at(i));
       }
     }
     return left_cnt;
