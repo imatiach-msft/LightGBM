@@ -167,7 +167,7 @@ if(${MM_MALLOC})
 endif()
 
 if(UNIX OR MINGW OR CYGWIN)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -Wextra -Wall -Wno-ignored-attributes -Wno-unknown-pragmas -Wno-return-type -D_GLIBCXX_ASSERTIONS -Wstack-protector -fstack-protector-strong")
+    SET(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -g -std=c++11 -pthread -Wextra -Wall -Wno-ignored-attributes -Wno-unknown-pragmas -Wno-return-type -D_GLIBCXX_ASSERTIONS -Wstack-protector -fstack-protector-strong")
     add_compile_definitions(_GLIBCXX_ASSERTIONS)
     if(USE_DEBUG)
         SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
