@@ -1,6 +1,12 @@
 # task type, support train and predict
 task = train
 
+label = 0
+
+pre_partition = true
+
+verbosity = 2
+
 # boosting type, support gbdt for now, alias: boosting, boost
 boosting_type = gbdt
 
